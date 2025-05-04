@@ -1,8 +1,17 @@
 <?php
-// Only start session if it hasn't been started already
+require 'includes/config.php';    // connexion PDO
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// 1) Récupérer tous les produits
+$stmt = $connexion->prepare("
+    SELECT id, name, price, image, stock
+    FROM products
+    ORDER BY created_at DESC
+");
+$stmt->execute();
+$products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,6 +23,88 @@ if (session_status() === PHP_SESSION_NONE) {
   <!-- !bootstrap icon -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" />
   <link rel="stylesheet" href="css/main.css" />
+  <!-- Custom CSS for Product Section -->
+  <style>
+    /* Products Section Styles */
+    .products-section {
+      padding: 60px 0;
+      background-color: #f9f9f9;
+    }
+    .products-section .section-title {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .products-section .section-title h2 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .products-section .section-title p {
+      font-size: 1rem;
+      color: #666;
+    }
+    .products-section .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .products-section .product-card {
+      display: block;
+      background-color: #fff;
+      border: 1px solid #eaeaea;
+      border-radius: 5px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .products-section .product-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .products-section .product-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .products-section .product-info {
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .products-section .product-title {
+      font-size: 1rem;
+      margin: 0 0 5px;
+      font-weight: 500;
+      color: #333;
+    }
+    .products-section .product-price {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #000;
+    }
+    .products-section .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .products-section .badge-success {
+      background-color: #28a745;
+      color: #fff;
+    }
+    .products-section .badge-danger {
+      background-color: #dc3545;
+      color: #fff;
+    }
+    @media (max-width: 576px) {
+      .products-section .products-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
   <!-- !Glide.js Css CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Glide.js/3.6.0/css/glide.core.min.css" />
   <title>DermaShop | Premium Skincare Products</title>
@@ -148,7 +239,7 @@ if (session_status() === PHP_SESSION_NONE) {
               <button class="search-button">
                 <i class="bi bi-search"></i>
               </button>
-              <a href="#">
+              <a href="wishlist.php">
                 <i class="bi bi-heart"></i>
               </a>
               <div class="header-cart">
@@ -182,7 +273,6 @@ if (session_status() === PHP_SESSION_NONE) {
     </div>
   </div>
   <!-- ! modal search end -->
-
   <!-- ! modal dialog start -->
   <div class="modal-dialog">
     <div class="modal-content">
@@ -426,77 +516,62 @@ if (session_status() === PHP_SESSION_NONE) {
   </section>
   <!-- ! category end-->
 
-  <!-- ! product start -->
-  <section class="products">
-    <div class="container">
-      <div class="section-title">
-        <h2>Featured Products</h2>
-        <p>Summer Collection New Modern Design</p>
-      </div>
-      <div class="product-wrapper product-carousel">
-        <div class="glide__track" data-glide-el="track">
-          <ul class="product-list glide__slides" id="product-list">
-            <li class="product-item glide__slide">
-              <div class="product-image">
-                <a href="#">
-                  <img src="img/products/product1/1.png" alt="" class="img1" />
-                  <img src="img/products/product1/2.png" alt="" class="img2" />
-                </a>
-              </div>
-              <div class="product-info">
-                <a href="#" class="product-title"> Analogue Resin Strap </a>
-                <ul class="product-star">
-                  <li>
-                    <i class="bi bi-star-fill"></i>
-                  </li>
-                  <li>
-                    <i class="bi bi-star-fill"></i>
-                  </li>
-                  <li>
-                    <i class="bi bi-star-fill"></i>
-                  </li>
-                  <li>
-                    <i class="bi bi-star-fill"></i>
-                  </li>
-                  <li>
-                    <i class="bi bi-star-half"></i>
-                  </li>
-                </ul>
-                <div class="product-prices">
-                  <strong class="new-price">$108.00</strong>
-                  <span class="old-price">$165</span>
-                </div>
-                <span class="product-discount"> -17% </span>
-                <div class="product-links">
-                  <button>
-                    <i class="bi bi-basket-fill"></i>
-                  </button>
-                  <button>
-                    <i class="bi bi-heart-fill"></i>
-                  </button>
-                  <a href="#">
-                    <i class="bi bi-eye-fill"></i>
-                  </a>
-                  <a href="#">
-                    <i class="bi bi-share-fill"></i>
-                  </a>
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <div class="glide__arrows" data-glide-el="controls">
-          <button class="glide__arrow glide__arrow--left" data-glide-dir="<">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <button class="glide__arrow glide__arrow--right" data-glide-dir=">">
-            <i class="bi bi-chevron-right"></i>
-          </button>
-        </div>
-      </div>
+  <!-- ! PRODUCTS SECTION START -->
+ 
+<!-- PRODUCTS SECTION START -->
+<section class="products-section">
+  <div class="container">
+    <div class="section-title">
+      <h2>All Products</h2>
+      <p>Découvrez tous nos produits</p>
     </div>
-  </section>
-  <!-- ! product end -->
+    <div class="products-grid">
+      <?php if ($products): ?>
+        <?php foreach ($products as $prod): ?>
+          <a href="product.php?id=<?= (int)$prod['id'] ?>" class="product-card">
+            <!-- fetch image binary from DB via a separate endpoint -->
+            <img
+              src="get_image.php?id=<?= (int)$prod['id'] ?>"
+              alt="<?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>"
+              loading="lazy"
+            />
+            <div class="product-info">
+              <div>
+                <h3 class="product-title">
+                  <?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>
+                </h3>
+                <div class="product-price">
+                  $<?= number_format($prod['price'], 2) ?>
+                </div>
+              </div>
+              <?php if ($prod['stock'] > 0): ?>
+                <span class="badge badge-success">En stock</span>
+              <?php else: ?>
+                <span class="badge badge-danger">Rupture de stock</span>
+              <?php endif; ?>
+            </div>
+          </a>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <p>Aucun produit disponible pour le moment.</p>
+      <?php endif; ?>
+    </div>
+  </div>
+</section>
+<!-- PRODUCTS SECTION END -->
+
+<style>
+  /* Force uniform image sizing */
+  .products-section .product-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+  }
+</style>
+
+
+  <!-- ! PRODUCTS SECTION END -->
 
   <!-- ! campaigns start -->
   <section class="campaigns">
@@ -739,256 +814,4 @@ if (session_status() === PHP_SESSION_NONE) {
           </a>
         </li>
       </ul>
-    </div>
-  </section>
-  <!-- ! brands end  -->
-
-  <!-- ! campaign single start -->
-  <section class="campaign-single">
-    <div class="container">
-      <div class="campaign-wrapper">
-        <h2>New Season Sale</h2>
-        <strong>40% OFF</strong>
-        <span></span>
-        <a href="#" class="btn btn-lg">
-          SHOP NOW
-          <i class="bi bi-arrow-right"></i>
-        </a>
-      </div>
-    </div>
-  </section>
-  <!-- ! campaign single end -->
-
-  <!-- ! policy start -->
-  <section class="policy">
-    <div class="container">
-      <ul class="policy-list">
-        <li class="policy-item">
-          <i class="bi bi-truck"></i>
-          <div class="policy-texts">
-            <strong>FREE DELIVERY</strong>
-            <span>From $59.89</span>
-          </div>
-        </li>
-        <li class="policy-item">
-          <i class="bi bi-headset"></i>
-          <div class="policy-texts">
-            <strong>SUPPORT 24/7</strong>
-            <span>Online 24 hours</span>
-          </div>
-        </li>
-        <li class="policy-item">
-          <i class="bi bi-arrow-clockwise"></i>
-          <div class="policy-texts">
-            <strong>30 DAYS RETURN</strong>
-            <span>Simply return it within 30 days</span>
-          </div>
-        </li>
-        <li class="policy-item">
-          <i class="bi bi-credit-card"></i>
-          <div class="policy-texts">
-            <strong>PAYMENT METHOD</strong>
-            <span>Secure Payment</span>
-          </div>
-        </li>
-      </ul>
-    </div>
-  </section>
-  <!-- ! policy end -->
-
-  <!-- ! footer start -->
-  <section class="footer">
-    <div class="subscribe-contact-row">
-      <div class="container">
-        <div class="subscribe-contact-wrapper">
-          <div class="subscribe-wrapper">
-            <div class="footer-subscribe">
-              <div class="footer-subscribe-top">
-                <h3 class="subscribe-title">
-                  Get our emails for info on new items, sales and more.
-                </h3>
-                <p class="subscribe-desc">
-                  We'll email you a voucher worth $10 off your first order
-                  over $50.
-                </p>
-              </div>
-              <div class="footer-subscribe-bottom">
-                <form>
-                  <input type="text" placeholder="enter your email addres" />
-                  <button class="btn">Subscribe</button>
-                </form>
-                <p class="privacy-text">
-                  By subscribing you agree to our
-                  <a href="#">Terms & Conditions and Privacy & Cookies Policy.</a>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="contact-wrapper">
-            <div class="footer-contact-top">
-              <h3 class="contact-title">Need help? <br>
-                (+90) 123 456 78 90
-              </h3>
-              <p class="contact-desc">We are available 8:00am – 7:00pm
-              </p>
-            </div>
-            <div class="footer-contact-bottom">
-              <div class="download-app">
-                <a href="#">
-                  <img src="img/footer/app-store.png" alt="">
-                </a>
-                <a href="#">
-                  <img src="img/footer/google-play.png" alt="">
-                </a>
-              </div>
-              <p class="privacy-text">
-                <strong>Shopping App:</strong> Try our View in Your Room feature, manage registries and save payment
-                info.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="widgets-row">
-      <div class="container">
-        <div class="footer-widgets">
-          <div class="brand-info">
-            <div class="footer-logo">
-              <a href="index.php" class="logo">DermaShop</a>
-            </div>
-            <div class="footer-desc">
-              Premium dermatological products for healthy skin. Scientifically formulated skincare solutions for every skin type.
-            </div>
-            <div class="footer-contact">
-              <p>
-                <a href="tel:123456789">(+800) 1234 5678 90</a> -
-                <a href="mailto:info@dermashop.com">info@dermashop.com</a>
-              </p>
-            </div>
-          </div>
-          <div class="widget-nav-menu">
-            <h4>Information</h4>
-            <ul class="menu-list">
-              <li>
-                <a href="#">About Us</a>
-              </li>
-              <li>
-                <a href="#">Privacy Policy</a>
-              </li>
-              <li>
-                <a href="#">Returns Policy</a>
-              </li>
-              <li>
-                <a href="#">Shipping Policy</a>
-              </li>
-              <li>
-                <a href="#">Dropshipping</a>
-              </li>
-            </ul>
-          </div>
-          <div class="widget-nav-menu">
-            <h4>Account</h4>
-            <ul class="menu-list">
-              <li>
-                <a href="#">Dashboard</a>
-              </li>
-              <li>
-                <a href="#">My Orders</a>
-              </li>
-              <li>
-                <a href="#">My Wishlist</a>
-              </li>
-              <li>
-                <a href="#">Account details</a>
-              </li>
-              <li>
-                <a href="#">Track My Orders</a>
-              </li>
-            </ul>
-          </div>
-          <div class="widget-nav-menu">
-            <h4>Shop</h4>
-            <ul class="menu-list">
-              <li>
-                <a href="#">Affiliate</a>
-              </li>
-              <li>
-                <a href="#">Bestsellers</a>
-              </li>
-              <li>
-                <a href="#">Discount</a>
-              </li>
-              <li>
-                <a href="#">Latest Products</a>
-              </li>
-              <li>
-                <a href="#">Sale Products</a>
-              </li>
-            </ul>
-          </div>
-          <div class="widget-nav-menu">
-            <h4>Categories</h4>
-            <ul class="menu-list">
-              <li>
-                <a href="#">Women</a>
-              </li>
-              <li>
-                <a href="#">Men</a>
-              </li>
-              <li>
-                <a href="#">Bags</a>
-              </li>
-              <li>
-                <a href="#">Outerwear</a>
-              </li>
-              <li>
-                <a href="#">Shoes</a>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="copyright-row">
-      <div class="copyright-row">
-        <div class="container">
-          <div class="footer-copyright">
-            <div class="site-copyright">
-              <p>
-                Copyright 2023 © DermaShop. All rights reserved.
-              </p>
-            </div>
-            <a href="#">
-              <img src="img/footer/cards.png" alt="">
-            </a>
-            <div class="footer-menu">
-              <ul class="footer-menu-list">
-                <li class="list-item">
-                  <a href="#">Privacy Policy</a>
-                </li>
-                <li class="list-item">
-                  <a href="#">Terms and Conditions</a>
-                </li>
-                <li class="list-item">
-                  <a href="#">Returns Policy</a>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-  <!-- ! footer end -->
-
-  <!-- scripts start -->
-  <script src="js/main.js" type="module"></script>
-  <script src="js/slider.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@glidejs/glide"></script>
-  <script src="js/glide.js" type="module"></script>
-  <!-- scripts end -->
-
-</body>
-
-</html>
+    </li></ul></body></html>

@@ -1,507 +1,320 @@
 <?php
-session_start();
-include 'includes/config.php';
+require 'includes/config.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Check if user is logged in
-if (!isset($_SESSION['logged_in'])) {
-    $_SESSION['error'] = 'Please log in to view your cart.';
-    header('Location: account.php');
+// 1) Ensure user is logged in
+if (empty($_SESSION['logged_in']) || empty($_SESSION['user_id'])) {
+    header('Location: login.php');
     exit;
 }
+$user_id = $_SESSION['user_id'];
+
+// 2) Handle updates/removals
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!empty($_POST['update_cart']) && !empty($_POST['quantities'])) {
+      foreach ($_POST['quantities'] as $item_id => $qty) {
+        $qty = max(1, (int)$qty);
+        $stmt = $connexion->prepare("UPDATE panier_items SET quantity = :qty WHERE id = :id");
+        $stmt->execute([':qty'=>$qty, ':id'=>$item_id]);
+      }
+    }
+    if (!empty($_POST['remove_item'])) {
+      $stmt = $connexion->prepare("DELETE FROM panier_items WHERE id = :id");
+      $stmt->execute([':id'=>(int)$_POST['remove_item']]);
+    }
+    header('Location: cart.php');
+    exit;
+}
+
+// 3) Get or create the active panier
+$stmt = $connexion->prepare("
+  SELECT id FROM paniers 
+   WHERE user_id = :uid AND status = 'active' LIMIT 1
+");
+$stmt->execute([':uid'=>$user_id]);
+$panier = $stmt->fetch(PDO::FETCH_ASSOC);
+if ($panier) {
+  $panier_id = $panier['id'];
+} else {
+  $stmt = $connexion->prepare("INSERT INTO paniers (user_id) VALUES (:uid)");
+  $stmt->execute([':uid'=>$user_id]);
+  $panier_id = $connexion->lastInsertId();
+}
+
+// 4) Fetch items
+$stmt = $connexion->prepare("
+  SELECT pi.id AS item_id, pi.quantity,
+         p.id AS product_id, p.name, p.price, p.image, p.stock
+    FROM panier_items pi
+    JOIN products p ON pi.product_id = p.id
+   WHERE pi.panier_id = :pid
+");
+$stmt->execute([':pid'=>$panier_id]);
+$items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// 5) Subtotal & totals
+$subtotal = array_reduce($items, fn($sum,$i)=>$sum + $i['price']*$i['quantity'], 0.0);
+$shipping_methods = ['standard'=>0.00, 'fast'=>15.00];
+$selectedShipping = $_POST['shipping_method'] ?? 'standard';
+$shipping_cost     = $shipping_methods[$selectedShipping] ?? 0.00;
+$total             = $subtotal + $shipping_cost;
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- !bootstrap icon -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" />
-    <link rel="stylesheet" href="css/main.css" />
-    <title>E-Commerce | Cart</title>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="css/main.css" />
+  <title>DermaShop | Your Cart</title>
+
+  <style>
+  /* === Cart Page Styles === */
+  .cart-page {
+    padding: 4rem 0;
+    background: #f4f5f7;
+    color: #333;
+  }
+  .cart-page .container { max-width: 1200px; margin: 0 auto; }
+  .cart-page h2 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .empty-cart {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .empty-cart a {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: .6rem 1.2rem;
+    background: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    text-decoration: none;
+  }
+
+  .shop-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+  }
+  .shop-table thead { background: #e9ecef; }
+  .shop-table th,
+  .shop-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .shop-table tbody tr:nth-child(odd) { background: #f9f9f9; }
+  .shop-table img {
+    max-width: 80px;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .quantity-input {
+    width: 60px;
+    padding: .4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: .6rem 1.2rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .btn-primary {
+    background: #007bff;
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: #0069d9;
+  }
+  .btn-danger {
+    background: #dc3545;
+    color: #fff;
+  }
+  .btn-danger:hover {
+    background: #c82333;
+  }
+
+  .cart-actions {
+    margin-bottom: 2rem;
+  }
+
+  .cart-summary-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 1.5rem;
+  }
+  .cart-totals {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex: 0 0 360px;
+  }
+  .cart-totals h3 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    text-transform: uppercase;
+  }
+  .cart-totals table {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  .cart-totals th {
+    text-align: left;
+    padding-bottom: .5rem;
+  }
+  .cart-totals td {
+    padding-bottom: .5rem;
+  }
+  .cart-totals table tr:last-child th,
+  .cart-totals table tr:last-child td {
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+  }
+  .proceed-btn {
+    display: block;
+    text-align: center;
+    margin-top: 1rem;
+  }
+  </style>
 </head>
-
 <body>
-    <!-- ! header start -->
-    <header>
-        <div class="global-notification">
-            <div class="container">
-                <p>
-                    SUMMER SALE FOR ALL SWIM SUITS AND FREE EXPRESS INTERNATIONAL
-                    DELIVERY - OFF 50%! <a href="shop.php">SHOP NOW</a>
-                </p>
-            </div>
-        </div>
-        <div class="header-row">
-            <div class="container">
-                <div class="header-wrapper">
-                    <div class="header-mobile">
-                        <i class="bi bi-list" id="btn-menu"></i>
-                    </div>
-                    <div class="header-left">
-                        <a href="/" class="logo">LOGO</a>
-                    </div>
-                    <div class="header-center" id="sidebar">
-                        <nav class="navigation">
-                            <ul class="menu-list">
-                                <li class="menu-list-item">
-                                    <a href="/" class="menu-link">Home
-                                        <i class="bi bi-chevron-down"></i>
-                                    </a>
-                                    <div class="menu-dropdown-wrapper">
-                                        <ul class="menu-dropdown-content">
-                                            <li><a href="#">Home Clean</a></li>
-                                            <li><a href="#">Home Collection</a></li>
-                                            <li><a href="#">Home Minimal</a></li>
-                                            <li><a href="#">Home Modern</a></li>
-                                            <li><a href="#">Home Parallax</a></li>
-                                            <li><a href="#">Home Strong</a></li>
-                                            <li><a href="#">Home Style</a></li>
-                                            <li><a href="#">Home Unique</a></li>
-                                            <li><a href="#">Home RTL</a></li>
-                                        </ul>
-                                    </div>
-                                </li>
-                                <li class="menu-list-item megamenu-wrapper">
-                                    <a href="shop.php" class="menu-link">Shop
-                                        <i class="bi bi-chevron-down"></i>
-                                    </a>
-                                    <div class="menu-dropdown-wrapper">
-                                        <div class="menu-dropdown-megamenu">
-                                            <div class="megamenu-links">
-                                                <div class="megamenu-products">
-                                                    <h3 class="megamenu-product-title">Shop Style</h3>
-                                                    <ul class="megamenu-menu-list">
-                                                        <li><a href="#">Shop Standart</a></li>
-                                                        <li><a href="#">Shop Full</a></li>
-                                                        <li><a href="#">Shop Only Categories</a></li>
-                                                        <li><a href="#">Shop Image Categories</a></li>
-                                                        <li><a href="#">Shop Sub Categories</a></li>
-                                                        <li><a href="#">Shop List</a></li>
-                                                        <li><a href="#">Hover Style 1</a></li>
-                                                        <li><a href="#">Hover Style 2</a></li>
-                                                        <li><a href="#">Hover Style 3</a></li>
-                                                    </ul>
-                                                </div>
-                                                <div class="megamenu-products">
-                                                    <h3 class="megamenu-product-title">
-                                                        Filter Layout
-                                                    </h3>
-                                                    <ul class="megamenu-menu-list">
-                                                        <li><a href="#">Sidebar</a></li>
-                                                        <li><a href="#">Filter Side Out</a></li>
-                                                        <li><a href="#">Filter Dropdown</a></li>
-                                                        <li><a href="#">Filter Drawer</a></li>
-                                                    </ul>
-                                                </div>
-                                                <div class="megamenu-products">
-                                                    <h3 class="megamenu-product-title">Shop Loader</h3>
-                                                    <ul class="megamenu-menu-list">
-                                                        <li><a href="#">Shop Pagination</a></li>
-                                                        <li><a href="#">Shop Infinity</a></li>
-                                                        <li><a href="#">Shop Load More</a></li>
-                                                        <li><a href="#">Cart Modal</a></li>
-                                                        <li><a href="#">Cart Drawer</a></li>
-                                                        <li><a href="#">Cart Page</a></li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            <div class="megamenu-single">
-                                                <a href="#">
-                                                    <img src="img/mega-menu.jpg" alt="" />
-                                                </a>
-                                                <h3 class="megamenu-single-title">
-                                                    JOIN THE LAYERING GANG
-                                                </h3>
-                                                <h4 class="megamenu-single-subtitle">
-                                                    Suspendisse faucibus nunc et pellentesque
-                                                </h4>
-                                                <a href="#" class="megamenu-single-button btn btn-sm">Shop Now</a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="menu-list-item">
-                                    <a href="blog.html" class="menu-link">Blog
-                                    </a>
-                                </li>
-                                <li class="menu-list-item">
-                                    <a href="contact.html" class="menu-link">Contact</a>
-                                </li>
-                            </ul>
-                        </nav>
-                        <i class="bi-x-circle" id="close-sidebar"></i>
-                    </div>
-                    <div class="header-right">
-                        <div class="header-right-links">
-                            <a href="account.php">
-                                <i class="bi bi-person"></i>
-                            </a>
-                            <button class="search-button">
-                                <i class="bi bi-search"></i>
-                            </button>
-                            <a href="#">
-                                <i class="bi bi-heart"></i>
-                            </a>
-                            <div class="header-cart">
-                                <a href="cart.php" class="header-cart-link">
-                                    <i class="bi bi-bag"></i>
-                                    <span class="header-cart-count">0</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-    <!-- ! header end -->
+  <?php include __DIR__ . '/partials/header.php'; ?>
 
-    <!-- ! modal search start -->
-    <div class="modal-search">
-        <div class="modal-wrapper">
-            <h3 class="modal-title">Search for products</h3>
-            <p class="modal-text">
-                Start typing to see products you are looking for.
-            </p>
-            <div class="search">
-                <input type="text" placeholder="Search a product" />
-                <button><i class="bi bi-search"></i></button>
-            </div>
-            </form>
-            <div class="search-result">
-                <div class="search-heading">
-                    <h3>RESULT FROM PRODUCT</h3>
-                </div>
-                <div class="results">
+  <main class="cart-page">
+    <div class="container">
+      <h2>Your Shopping Cart</h2>
 
-                </div>
-            </div>
-            <i class="bi bi-x-circle" id="close-modal-search"></i>
+      <?php if (empty($items)): ?>
+        <div class="empty-cart">
+          <p>Your cart is currently empty.</p>
+          <a href="shop.php">Continue Shopping</a>
         </div>
+      <?php else: ?>
+        <form action="cart.php" method="post">
+          <div class="table-responsive">
+            <table class="shop-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Product</th>
+                  <th>Price</th>
+                  <th>Qty</th>
+                  <th>Subtotal</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($items as $it): ?>
+                <tr>
+                  <td>
+                  <img 
+                                src="get_image.php?id=<?= $product['id'] ?>" 
+                                id="single-image"
+                                alt="<?= htmlspecialchars($product['name']) ?>"
+                            />
+                  </td>
+                  <td><?= htmlspecialchars($it['name']) ?></td>
+                  <td>$<?= number_format($it['price'],2) ?></td>
+                  <td>
+                    <input
+                      class="quantity-input"
+                      type="number"
+                      name="quantities[<?= $it['item_id'] ?>]"
+                      value="<?= $it['quantity'] ?>"
+                      min="1"
+                      max="<?= $it['stock'] ?>"
+                    >
+                  </td>
+                  <td>$<?= number_format($it['price'] * $it['quantity'],2) ?></td>
+                  <td>
+                    <button
+                      type="submit"
+                      name="remove_item"
+                      value="<?= $it['item_id'] ?>"
+                      class="btn btn-danger"
+                    >&times;</button>
+                  </td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cart-actions">
+            <button type="submit" name="update_cart" class="btn btn-primary">
+              Update Cart
+            </button>
+          </div>
+
+          <div class="cart-summary-wrapper">
+            <div class="cart-totals">
+              <h3>Cart Totals</h3>
+              <table>
+                <tr>
+                  <th>Subtotal</th>
+                  <td>$<?= number_format($subtotal,2) ?></td>
+                </tr>
+                <tr>
+                  <th>Shipping</th>
+                  <td>
+                    <label>
+                      <input type="radio"
+                             name="shipping_method"
+                             value="standard"
+                             <?= $selectedShipping==='standard'?'checked':'' ?>>
+                      Free Standard
+                    </label><br>
+                    <label>
+                      <input type="radio"
+                             name="shipping_method"
+                             value="fast"
+                             <?= $selectedShipping==='fast'?'checked':'' ?>>
+                      Fast Cargo ($15.00)
+                    </label>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Total</th>
+                  <td>$<?= number_format($total,2) ?></td>
+                </tr>
+              </table>
+              <a href="checkout.php" class="btn btn-primary proceed-btn">
+                Proceed to Checkout
+              </a>
+            </div>
+          </div>
+        </form>
+      <?php endif; ?>
     </div>
-    <!-- ! modal search end -->
+  </main>
 
- 
-
-    <!-- ! cart start -->
-    <section class="cart-page">
-        <div class="container">
-            <div class="cart-page-wrapper">
-                <form class="cart-form">
-                    <div class="free-progress-bar">
-                        <p class="progress-bar-title">
-                            Add <strong>$161.00</strong> to cart and get free shipping!
-                        </p>
-                        <div class="progress-bar">
-                            <span class="progress"></span>
-                        </div>
-                    </div>
-                    <div class="shop-table-wrapper">
-                        <table class="shop-table">
-                            <thead>
-                                <th class="product-thumbnail">&nbsp;</th>
-                                <th class="product-thumbnail">&nbsp;</th>
-                                <th class="product-name">Product</th>
-                                <th class="product-price">Price</th>
-                                <th class="product-quantity">Quantity</th>
-                                <th class="product-subtotal">Subtotal</th>
-                            </thead>
-                            <tbody class="cart-wrapper" id="cart-product">
-
-                            </tbody>
-                        </table>
-                        <div class="action-wrapper">
-                            <div class="coupon">
-                                <input type="text" class="input-text" placeholder="Coupon Code">
-                                <button class="btn btn-black btn-md">Apply Coupon</button>
-                            </div>
-                            <div class="update-coupon">
-                                <button class="btn btn-red btn-md">Update Cart</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-                <div class="cart-collaterals">
-                    <div class="cart-totals">
-                        <h2>Cart Totals</h2>
-                        <table>
-                            <tbody>
-                                <tr class="cart-subtotal">
-                                    <th>Subtotal</th>
-                                    <td>
-                                        <span id="subtotal">
-                                            $316.00
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th>Shipping</th>
-                                    <td>
-                                        <ul>
-                                            <li>
-                                                <label>
-                                                    Fast Cargo :$15.00
-                                                    <input type="checkbox" id="fast-cargo">
-                                                </label>
-                                            </li>
-                                            <li>
-                                                <a href="#">Change Address</a>
-                                            </li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th>Total</th>
-                                    <td>
-                                        <strong id="cart-total">$316.00</strong>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="checkout">
-                            <button class="btn btn-lg btn-red">Proceed to checkout</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- ! cart end -->
-
-    <!-- ! policy start -->
-    <section class="policy">
-        <div class="container">
-            <ul class="policy-list">
-                <li class="policy-item">
-                    <i class="bi bi-truck"></i>
-                    <div class="policy-texts">
-                        <strong>FREE DELIVERY</strong>
-                        <span>From $59.89</span>
-                    </div>
-                </li>
-                <li class="policy-item">
-                    <i class="bi bi-headset"></i>
-                    <div class="policy-texts">
-                        <strong>SUPPORT 24/7</strong>
-                        <span>Online 24 hours</span>
-                    </div>
-                </li>
-                <li class="policy-item">
-                    <i class="bi bi-arrow-clockwise"></i>
-                    <div class="policy-texts">
-                        <strong>30 DAYS RETURN</strong>
-                        <span>Simply return it within 30 days</span>
-                    </div>
-                </li>
-                <li class="policy-item">
-                    <i class="bi bi-credit-card"></i>
-                    <div class="policy-texts">
-                        <strong>PAYMENT METHOD</strong>
-                        <span>Secure Payment</span>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </section>
-    <!-- ! policy end -->
-
-    <!-- ! footer start -->
-    <section class="footer">
-        <div class="subscribe-contact-row">
-            <div class="container">
-                <div class="subscribe-contact-wrapper">
-                    <div class="subscribe-wrapper">
-                        <div class="footer-subscribe">
-                            <div class="footer-subscribe-top">
-                                <h3 class="subscribe-title">
-                                    Get our emails for info on new items, sales and more.
-                                </h3>
-                                <p class="subscribe-desc">
-                                    We'll email you a voucher worth $10 off your first order
-                                    over $50.
-                                </p>
-                            </div>
-                            <div class="footer-subscribe-bottom">
-                                <form>
-                                    <input type="text" placeholder="enter your email addres" />
-                                    <button class="btn">Subscribe</button>
-                                </form>
-                                <p class="privacy-text">
-                                    By subscribing you agree to our
-                                    <a href="#">Terms & Conditions and Privacy & Cookies Policy.</a>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="contact-wrapper">
-                        <div class="footer-contact-top">
-                            <h3 class="contact-title">Need help? <br>
-                                (+90) 123 456 78 90
-                            </h3>
-                            <p class="contact-desc">We are available 8:00am – 7:00pm
-                            </p>
-                        </div>
-                        <div class="footer-contact-bottom">
-                            <div class="download-app">
-                                <a href="#">
-                                    <img src="img/footer/app-store.png" alt="">
-                                </a>
-                                <a href="#">
-                                    <img src="img/footer/google-play.png" alt="">
-                                </a>
-                            </div>
-                            <p class="privacy-text">
-                                <strong>Shopping App:</strong> Try our View in Your Room feature, manage registries and
-                                save payment
-                                info.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="widgets-row">
-            <div class="container">
-                <div class="footer-widgets">
-                    <div class="brand-info">
-                        <div class="footer-logo">
-                            <a href="/" class="logo">LOGO</a>
-                        </div>
-                        <div class="footer-desc">
-                            Quis ipsum suspendisse ultrices gravida. Risus commodo viverra maecenas accumsan lacus vel
-                            facilisis in
-                            termapol.
-                        </div>
-                        <div class="footer-contact">
-                            <p>
-                                <a href="tel:123456789">(+800) 1234 5678 90</a> -
-                                <a href="mailto:info@example.com">info@example.com</a>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="widget-nav-menu">
-                        <h4>Information</h4>
-                        <ul class="menu-list">
-                            <li>
-                                <a href="#">About Us</a>
-                            </li>
-                            <li>
-                                <a href="#">Privacy Policy</a>
-                            </li>
-                            <li>
-                                <a href="#">Returns Policy</a>
-                            </li>
-                            <li>
-                                <a href="#">Shipping Policy</a>
-                            </li>
-                            <li>
-                                <a href="#">Dropshipping</a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="widget-nav-menu">
-                        <h4>Account</h4>
-                        <ul class="menu-list">
-                            <li>
-                                <a href="#">Dashboard</a>
-                            </li>
-                            <li>
-                                <a href="#">My Orders</a>
-                            </li>
-                            <li>
-                                <a href="#">My Wishlist</a>
-                            </li>
-                            <li>
-                                <a href="#">Account details</a>
-                            </li>
-                            <li>
-                                <a href="#">Track My Orders</a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="widget-nav-menu">
-                        <h4>Shop</h4>
-                        <ul class="menu-list">
-                            <li>
-                                <a href="#">Affiliate</a>
-                            </li>
-                            <li>
-                                <a href="#">Bestsellers</a>
-                            </li>
-                            <li>
-                                <a href="#">Discount</a>
-                            </li>
-                            <li>
-                                <a href="#">Latest Products</a>
-                            </li>
-                            <li>
-                                <a href="#">Sale Products</a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="widget-nav-menu">
-                        <h4>Categories</h4>
-                        <ul class="menu-list">
-                            <li>
-                                <a href="#">Women</a>
-                            </li>
-                            <li>
-                                <a href="#">Men</a>
-                            </li>
-                            <li>
-                                <a href="#">Bags</a>
-                            </li>
-                            <li>
-                                <a href="#">Outerwear</a>
-                            </li>
-                            <li>
-                                <a href="#">Shoes</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="copyright-row">
-            <div class="copyright-row">
-                <div class="container">
-                    <div class="footer-copyright">
-                        <div class="site-copyright">
-                            <p>
-                                Copyright 2022 © E-Commerce Theme. All right reserved.
-                                Powered By Sinan Sarıçayır.
-                            </p>
-                        </div>
-                        <a href="#">
-                            <img src="img/footer/cards.png" alt="">
-                        </a>
-                        <div class="footer-menu">
-                            <ul class="footer-menu-list">
-                                <li class="list-item">
-                                    <a href="#">Privacy Policy</a>
-                                </li>
-                                <li class="list-item">
-                                    <a href="#">Terms and Conditions</a>
-                                </li>
-                                <li class="list-item">
-                                    <a href="#">Returns Policy</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- ! footer end -->
-
-    <!-- scripts start -->
-    <script src="js/main.js" type="module"></script>
-    <script src="js/cart.js"></script>
-    <!-- scripts end -->
-
+  <?php include __DIR__ . '/partials/footer.php'; ?>
 </body>
-
 </html>
