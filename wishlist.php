@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // 1) Vérifier la connexion
 if (empty($_SESSION['user_id'])) {
-    header('Location: login.php');
+    header('Location: account.php');
     exit;
 }
 $userId = $_SESSION['user_id'];
@@ -93,8 +93,13 @@ if ($panierId) {
       <?php foreach ($products as $prod): ?>
         <div class="col-6 col-md-4 col-lg-3">
           <div class="card h-100">
-            <img src="<?= htmlspecialchars($prod['image']) ?>"
-                 class="card-img-top" alt="<?= htmlspecialchars($prod['name']) ?>">
+          <img
+  src="get_image.php?id=<?= (int)$prod['id'] ?>"
+  class="card-img-top"
+  alt="<?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>"
+  loading="lazy"
+/>
+
             <div class="card-body d-flex flex-column">
               <h5 class="card-title"><?= htmlspecialchars($prod['name']) ?></h5>
               <p class="text-danger fs-5">$<?= number_format($prod['price'],2) ?></p>

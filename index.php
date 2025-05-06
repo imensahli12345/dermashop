@@ -40,7 +40,7 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
       color: #333;
     }
     .products-section .section-title p {
-      font-size: 1rem;
+      font-size: 0.75rem;
       color: #666;
     }
     .products-section .products-grid {
@@ -63,7 +63,7 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
       box-shadow: 0 8px 16px rgba(0,0,0,0.1);
     }
     .products-section .product-card img {
-      width: 100%;
+      width: 50%;
       height: auto;
       display: block;
     }
@@ -74,13 +74,13 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
       align-items: center;
     }
     .products-section .product-title {
-      font-size: 1rem;
+      font-size: 0.75rem;
       margin: 0 0 5px;
       font-weight: 500;
       color: #333;
     }
     .products-section .product-price {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: bold;
       color: #000;
     }

@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // 1) Ensure user is logged in
 if (empty($_SESSION['logged_in']) || empty($_SESSION['user_id'])) {
-    header('Location: login.php');
+    header('Location: account.php');
     exit;
 }
 $user_id = $_SESSION['user_id'];
@@ -231,38 +231,40 @@ $total             = $subtotal + $shipping_cost;
                 </tr>
               </thead>
               <tbody>
-                <?php foreach ($items as $it): ?>
-                <tr>
-                  <td>
-                  <img 
-                                src="get_image.php?id=<?= $product['id'] ?>" 
-                                id="single-image"
-                                alt="<?= htmlspecialchars($product['name']) ?>"
-                            />
-                  </td>
-                  <td><?= htmlspecialchars($it['name']) ?></td>
-                  <td>$<?= number_format($it['price'],2) ?></td>
-                  <td>
-                    <input
-                      class="quantity-input"
-                      type="number"
-                      name="quantities[<?= $it['item_id'] ?>]"
-                      value="<?= $it['quantity'] ?>"
-                      min="1"
-                      max="<?= $it['stock'] ?>"
-                    >
-                  </td>
-                  <td>$<?= number_format($it['price'] * $it['quantity'],2) ?></td>
-                  <td>
-                    <button
-                      type="submit"
-                      name="remove_item"
-                      value="<?= $it['item_id'] ?>"
-                      class="btn btn-danger"
-                    >&times;</button>
-                  </td>
-                </tr>
-                <?php endforeach; ?>
+              <?php foreach ($items as $it): ?>
+  <tr>
+    <td>
+      <img
+        src="get_image.php?id=<?= $it['product_id'] ?>"
+        class="product-image"
+        alt="<?= htmlspecialchars($it['name'], ENT_QUOTES) ?>"
+        width="80" height="80"
+      />
+    </td>
+    <td><?= htmlspecialchars($it['name'], ENT_QUOTES) ?></td>
+    <td>$<?= number_format($it['price'],2) ?></td>
+    <td>
+      <input
+        class="quantity-input"
+        type="number"
+        name="quantities[<?= $it['item_id'] ?>]"
+        value="<?= $it['quantity'] ?>"
+        min="1"
+        max="<?= $it['stock'] ?>"
+      >
+    </td>
+    <td>$<?= number_format($it['price'] * $it['quantity'],2) ?></td>
+    <td>
+      <button
+        type="submit"
+        name="remove_item"
+        value="<?= $it['item_id'] ?>"
+        class="btn btn-danger"
+      >&times;</button>
+    </td>
+  </tr>
+<?php endforeach; ?>
+
               </tbody>
             </table>
           </div>
