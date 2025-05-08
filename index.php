@@ -519,45 +519,45 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <!-- ! PRODUCTS SECTION START -->
  
 <!-- PRODUCTS SECTION START -->
+
 <section class="products-section">
-  <div class="container">
-    <div class="section-title">
-      <h2>All Products</h2>
-      <p>Découvrez tous nos produits</p>
-    </div>
-    <div class="products-grid">
-      <?php if ($products): ?>
-        <?php foreach ($products as $prod): ?>
-          <a href="product.php?id=<?= (int)$prod['id'] ?>" class="product-card">
-            <!-- fetch image binary from DB via a separate endpoint -->
-            <img
-              src="get_image.php?id=<?= (int)$prod['id'] ?>"
-              alt="<?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>"
-              loading="lazy"
-            />
-            <div class="product-info">
-              <div>
-                <h3 class="product-title">
-                  <?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>
-                </h3>
-                <div class="product-price">
-                  $<?= number_format($prod['price'], 2) ?>
+    <div class="container">
+      <div class="section-title">
+        <h2>All Products</h2>
+        <p>Découvrez tous nos produits</p>
+      </div>
+      <div class="products-grid">
+        <?php if ($products): ?>
+          <?php foreach ($products as $prod): ?>
+            <a href="product.php?id=<?= (int)$prod['id'] ?>" class="product-card">
+              <img
+                src="get_image.php?id=<?= (int)$prod['id'] ?>"
+                alt="<?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>"
+                loading="lazy"
+              />
+              <div class="product-info">
+                <div>
+                  <h3 class="product-title">
+                    <?= htmlspecialchars($prod['name'], ENT_QUOTES) ?>
+                  </h3>
+                  <div class="product-price">
+                    $<?= number_format($prod['price'], 2) ?>
+                  </div>
                 </div>
+                <?php if ($prod['stock'] > 0): ?>
+                  <span class="badge badge-success">En stock</span>
+                <?php else: ?>
+                  <span class="badge badge-danger">Rupture de stock</span>
+                <?php endif; ?>
               </div>
-              <?php if ($prod['stock'] > 0): ?>
-                <span class="badge badge-success">En stock</span>
-              <?php else: ?>
-                <span class="badge badge-danger">Rupture de stock</span>
-              <?php endif; ?>
-            </div>
-          </a>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <p>Aucun produit disponible pour le moment.</p>
-      <?php endif; ?>
+            </a>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p>Aucun produit disponible pour le moment.</p>
+        <?php endif; ?>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 <!-- PRODUCTS SECTION END -->
 
 <style>

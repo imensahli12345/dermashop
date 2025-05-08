@@ -9,10 +9,11 @@ if (!$id) {
     exit('Invalid product ID');
 }
 
-// 2) Fetch the image‐column (varchar name or blob) from the DB
+// 2) Fetch the image field from DB
 $stmt = $connexion->prepare('SELECT image FROM products WHERE id = ?');
 $stmt->execute([$id]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
 if (!$row || empty($row['image'])) {
     http_response_code(404);
     exit('Image not found');
@@ -20,10 +21,9 @@ if (!$row || empty($row['image'])) {
 
 $imageField = $row['image'];
 
-// 3) If `image` is a filename, serve that file from disk
+// 3) If it's a filename, serve that file
 $diskPath = __DIR__ . '/img/products/' . $imageField;
 if (is_file($diskPath)) {
-    // detect MIME type from the real file
     $mime = mime_content_type($diskPath) ?: 'application/octet-stream';
     header('Content-Type: ' . $mime);
     header('Content-Length: ' . filesize($diskPath));
@@ -31,10 +31,10 @@ if (is_file($diskPath)) {
     exit;
 }
 
-// 4) Otherwise assume `image` is raw binary (BLOB) and stream it
-//    (you’ll need to ALTER your column to BLOB for this to work)
+// 4) Otherwise assume it's raw BLOB data
 $finfo = new finfo(FILEINFO_MIME_TYPE);
 $mime  = $finfo->buffer($imageField) ?: 'application/octet-stream';
 header('Content-Type: ' . $mime);
 header('Content-Length: ' . strlen($imageField));
 echo $imageField;
+exit;
