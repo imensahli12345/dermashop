@@ -1,7 +1,6 @@
 -- DermaShop Database Schema based on Class Diagram
 -- This file contains the SQL commands to create the necessary tables for the DermaShop e-commerce website
-
--- Users Table
+-- Extend Users table (no change needed for client-specific fields)
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     firstName VARCHAR(100) NOT NULL,
@@ -14,6 +13,46 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- Client-specific data
+CREATE TABLE IF NOT EXISTS client_profiles (
+    user_id INT PRIMARY KEY,
+    credit_card_number VARCHAR(20),
+    credit_card_expiry DATE,
+    credit_card_cvv VARCHAR(4),
+    sold DECIMAL(10, 2) DEFAULT 0.00,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+ 
+ CREATE TABLE IF NOT EXISTS liked_products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE (user_id, product_id) -- prevent duplicate likes
+);
+CREATE TABLE IF NOT EXISTS paniers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    status ENUM('active', 'saved', 'checked_out') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS panier_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    panier_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT DEFAULT 1 CHECK (quantity > 0),
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (panier_id) REFERENCES paniers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE (panier_id, product_id) -- prevents duplicate entries
+);
+
 
 -- Categories Table
 CREATE TABLE IF NOT EXISTS categories (
