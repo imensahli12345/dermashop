@@ -7,7 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // 1) Redirect guests
 if (empty($_SESSION['logged_in']) || empty($_SESSION['user_id'])) {
-    header('Location: login.php');
+    header('Location: account.php');
     exit;
 }
 $user_id = $_SESSION['user_id'];
